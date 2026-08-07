@@ -1,0 +1,22 @@
+{
+  "$schema": "C:/Users/ZhuanZ/AppData/Roaming/npm/node_modules/wrangler/config-schema.json",
+  "name": "isaac-achievement",
+  "main": "src/index.js",
+  "compatibility_date": "2025-06-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "html_handling": "auto-trailing-slash",
+    "run_worker_first": ["/api/*", "/steam-achievements", "/steam-achievements/*"]
+  },
+  "routes": [
+    {
+      "pattern": "isaac-achievement.19x19.top",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
