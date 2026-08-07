@@ -1,0 +1,26 @@
+{
+  "name": "以撒的结合成就完成清单",
+  "short_name": "以撒成就完成清单",
+  "description": "以撒的结合 通关解锁全角色成就完成清单，支持进度追踪、优先级标记、存档导入",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0c1018",
+  "theme_color": "#4f6ef7",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "pwa/new-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "pwa/new-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

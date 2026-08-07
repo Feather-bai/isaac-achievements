@@ -1,0 +1,15 @@
+{
+  "name": "isaac-achievement-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "以撒的结合全成就完成清单 — Cloudflare Worker（静态页面 + /api/steam 转发）",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev --local"
+  },
+  "devDependencies": {
+    "wrangler": "^4.119.0"
+  }
+}
