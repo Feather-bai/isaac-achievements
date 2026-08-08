@@ -1,0 +1,6 @@
+# 以撒的结合全成就完成清单 - Cloudflare Pages
+name = "isaac-achievement"
+pages_build_output_dir = "build"
+compatibility_date = "2025-06-01"
+
+compatibility_flags = ["nodejs_compat"]

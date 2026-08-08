@@ -1,0 +1,28 @@
+{
+  "name": "isaac-achievement-pages",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run build:clean && npm run build:copy && npm run build:check",
+    "build:clean": "rimraf build",
+    "build:copy": "node scripts/build.mjs",
+    "build:check": "node --check lib/hono/index.ts",
+    "preview-api": "npm run build && wrangler pages dev",
+    "deploy": "npm run build && wrangler pages deploy build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "hono": "^4.4.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240529.0",
+    "typescript": "^5.2.2",
+    "vite": "^5.3.1",
+    "vitest": "2.1.9",
+    "wrangler": "^3.57.2",
+    "rimraf": "^5.0.5"
+  }
+}
