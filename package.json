@@ -8,7 +8,7 @@
     "build": "npm run build:clean && npm run build:copy && npm run build:check",
     "build:clean": "rimraf build",
     "build:copy": "node scripts/build.mjs",
-    "build:check": "node --check lib/hono/index.ts",
+    "build:check": "tsc --noEmit -p tsconfig.app.json",
     "preview-api": "npm run build && wrangler pages dev",
     "deploy": "npm run build && wrangler pages deploy build",
     "test": "vitest run",

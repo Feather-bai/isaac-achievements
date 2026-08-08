@@ -9,7 +9,17 @@ const GAME_APPID = '250900';
 const STEAM_BASE = 'https://steamcommunity.com';
 const STEAM_PREFIX = '7656119'; // SteamID64 固定前缀（实测非此前缀会被 Steam 拒）
 
-const ERROR_MAP: Record<string, string> = {
+type SteamIdResolved =
+  | { steamid: string; error?: never }
+  | { error: 'badinput' | 'notfound'; steamid?: never };
+
+type SteamFetchError = 'private' | 'unknown' | 'notfound';
+
+type SteamFetchResult =
+  | { unlocked: string[]; error?: never }
+  | { error: SteamFetchError; unlocked?: never };
+
+const ERROR_MAP: Record<string, SteamFetchError> = {
   steam_id_is_private: 'private',
   could_not_find_player: 'notfound',
   profile_could_not_be_found: 'notfound',
@@ -41,7 +51,7 @@ export default class SteamService {
   };
 
   /** 拉取并解析某用户《以撒》的成就 XML，返回已解锁的成就 apiname 列表 */
-  static fetchUnlocked = async (steamid: string) => {
+  static fetchUnlocked = async (steamid: string): Promise<SteamFetchResult> => {
     let resp: Response;
     try {
       resp = await fetch(`${STEAM_BASE}/profiles/${steamid}/stats/${GAME_APPID}/?xml=1`, {
@@ -88,7 +98,7 @@ export default class SteamService {
   };
 
   /** 把用户输入解析成 steamID64，返回 { steamid } 或 { error } */
-  static resolveSteamId = async (input: string) => {
+  static resolveSteamId = async (input: string): Promise<SteamIdResolved> => {
     const q = String(input || '').trim();
     if (!q) return { error: 'badinput' };
     // 已是 17 位数字
@@ -140,7 +150,7 @@ export default class SteamService {
     }
 
     const resolved = await SteamService.resolveSteamId(q);
-    if (resolved.error) {
+    if ('error' in resolved) {
       const status = resolved.error === 'badinput' ? 400 : 404;
       return ctx.json({ ok: false, error: resolved.error }, status);
     }
@@ -161,7 +171,7 @@ export default class SteamService {
       return ctx.json({ ok: false, error: 'badinput' }, 400);
     }
     const resolved = await SteamService.resolveSteamId(steamid);
-    if (resolved.error) {
+    if ('error' in resolved) {
       const status = resolved.error === 'badinput' ? 400 : 404;
       return ctx.json({ ok: false, error: resolved.error }, status);
     }
