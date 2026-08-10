@@ -1,9 +1,15 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 
 import { Bindings } from './types';
 import SteamService from './service/steamService';
 
 const app = new Hono<{ Bindings: Bindings }>();
+
+// 全局 CORS：允许任意来源跨域访问 API
+// （App 内页面从 https://localhost 加载，需要 CORS 头才能 fetch pages.dev 的 API）
+app.use('/api/*', cors());
+app.use('/steam-achievements', cors());
 
 // 新版 API：GET /api/steam?q=<SteamID / 链接 / 自定义短链>
 app.get('/api/steam', SteamService.handle);

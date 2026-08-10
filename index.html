@@ -325,7 +325,6 @@ main { max-width: 1480px; margin: 0 auto; padding: 22px 20px 80px; }
   display: flex; align-items: center; justify-content: center;
   transition: filter .2s ease;
 }
-.ach-icon:hover .icon-edit { opacity: 1; }
 .ach-icon img { width: 100%; height: 100%; object-fit: cover; display: none; border-radius: 0; }
 .ach-icon.has-img img { display: block; }
 .ach-icon.has-img .icon-placeholder { display: none; }
@@ -340,14 +339,6 @@ main { max-width: 1480px; margin: 0 auto; padding: 22px 20px 80px; }
 .icon-placeholder.grad-c { background: linear-gradient(140deg, #f59e0b, #ef4444); }
 .icon-placeholder.grad-d { background: linear-gradient(140deg, #10b981, #06b6d4); }
 .icon-placeholder.grad-e { background: linear-gradient(140deg, #ec4899, #8b5cf6); }
-.icon-edit {
-  position: absolute; inset: 0;
-  background: rgba(0,0,0,.5);
-  color: #fff; font-size: 20px;
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0; transition: opacity .15s ease;
-  cursor: pointer;
-}
 .pri-badge {
   position: absolute; top: -7px; right: -7px; z-index: 3;
   font-size: 10.5px; font-weight: 800;
@@ -8222,7 +8213,7 @@ body.topbar-collapsed .collapse-ico { transform: rotate(180deg); }
 "priority" : "",
 "reward" : "超级蘑菇",
 "title" : "超级蘑菇",
-"type" : "堕化角色",
+"type" : "普通角色",
 "wicon" : "collectibles",
 "wicon_id" : "625",
 "wlink" : "/wiki/C625",
@@ -9902,9 +9893,8 @@ function cardHtml(item) {
     : autoLink(item.reward);
   return '<div class="ach-card ' + priCls + '" data-id="' + item.id + '">' +
     '<div class="ach-icon-wrap">' +
-      '<div class="ach-icon' + (hasImg ? ' has-img' : '') + '" title="点击上传 / 更换成就图标">' +
+      '<div class="ach-icon' + (hasImg ? ' has-img' : '') + '">' +
         img +
-        '<span class="icon-edit">🖼</span>' +
       '</div>' +
       badge +
     '</div>' +
@@ -10068,10 +10058,6 @@ main.addEventListener('click', (e) => {
   const card = e.target.closest('.ach-card');
   if (!card) return;
   if (e.target.closest('a')) return;               // 链接不切换
-  if (e.target.closest('.ach-icon')) {              // 图标 → 上传
-    openIconPicker(card.dataset.id);
-    return;
-  }
   toggle(card.dataset.id);
 });
 
@@ -10158,59 +10144,6 @@ function toggle(id) {
   if (card) card.classList.toggle('done', state.completed.has(id));
   updateProgress();
   save();
-}
-
-/* 图标上传 */
-const fileInput = document.createElement('input');
-fileInput.type = 'file';
-fileInput.accept = 'image/*';
-fileInput.style.display = 'none';
-document.body.appendChild(fileInput);
-let pendingIconId = null;
-
-function openIconPicker(id) {
-  pendingIconId = id;
-  fileInput.value = '';
-  fileInput.click();
-}
-fileInput.addEventListener('change', () => {
-  const f = fileInput.files[0];
-  if (!f) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    const img = new Image();
-    img.onload = () => {
-      const size = 96;
-      const canvas = document.createElement('canvas');
-      canvas.width = size; canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      const s = Math.max(img.width, img.height);
-      const sx = (s - img.width) / 2, sy = (s - img.height) / 2;
-      ctx.drawImage(img, -sx, -sy, img.width * (size / s), img.height * (size / s));
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-      state.icons[pendingIconId] = dataUrl;
-      updateCardIcon(pendingIconId, dataUrl);
-      save();
-      toast('成就图标已更新');
-    };
-    img.onerror = () => toast('图片读取失败，请更换图片');
-    img.src = reader.result;
-  };
-  reader.readAsDataURL(f);
-});
-function updateCardIcon(id, dataUrl) {
-  const card = document.querySelector('.ach-card[data-id="' + id + '"]');
-  if (!card) return;
-  const icon = card.querySelector('.ach-icon');
-  icon.classList.add('has-img');
-  const existing = icon.querySelector('img');
-  if (existing) { existing.src = dataUrl; return; }
-  const img = document.createElement('img');
-  img.src = dataUrl;
-  img.alt = '';
-  icon.insertBefore(img, icon.firstChild);
-  const ph = icon.querySelector('.icon-placeholder');
-  if (ph) ph.remove();
 }
 
 /* ---------- 搜索 / 筛选 ---------- */

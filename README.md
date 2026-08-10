@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/30848772/README.md)
 # 以撒的结合 全成就完成清单
 
 > 《The Binding of Isaac》全成就 / 全角色通关进度追踪工具 · 支持 Steam 成就导入与存档解析
