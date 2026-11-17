@@ -1,65 +1,56 @@
-/* 以撒全成就完成清单 - Service Worker
- * 功能：离线缓存 + PWA 安装支持
- * 策略：网络优先，断网时回退到本地缓存
+/* 以撒成就清单 - Service Worker
+ * 页面 network-first（尽快拿到新版本），图集/数据 cache-first（体积大且按内容命名）。
  */
-
-const CACHE_NAME = 'isaac-checklist-v3';
-
-// 核心资源：与 sw.js 同目录下的页面（GitHub Pages 会自动把 ./ 指向 index.html）
-const CORE_ASSETS = [
-  './',
-  './index.html',
+const CACHE_NAME = 'isaac-checklist-v4';
+const CORE = ['/', '/index.html', '/pwa/manifest.json'];
+const PRECACHE = [
+  '/assets/atlas-ach.png',
+  '/assets/item-collect.webp',
+  '/assets/item-trinket.webp',
+  '/assets/item-cards.webp',
+  '/assets/item-runes.webp',
+  '/assets/item-pills.webp',
+  '/data/codex.json',
 ];
 
-// 安装阶段：预缓存核心资源
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(CORE_ASSETS))
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(CORE.concat(PRECACHE)))
       .then(() => self.skipWaiting())
   );
 });
 
-// 激活阶段：删除旧版本缓存，接管现有页面
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key !== CACHE_NAME)
-            .map((key) => caches.delete(key))
-        )
-      )
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
-// 请求阶段：网络优先，成功后缓存副本；失败时回退到缓存，最后兜底到首页
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  if (request.method !== 'GET' || !request.url.startsWith(self.location.origin)) return;
+  const url = new URL(request.url);
+  const cacheFirst = url.pathname.startsWith('/assets/') || url.pathname.startsWith('/data/');
 
-  // 只处理同源 GET 请求
-  if (request.method !== 'GET' || !request.url.startsWith(self.location.origin)) {
+  if (cacheFirst) {
+    event.respondWith(
+      caches.match(request).then((hit) => hit || fetch(request).then((res) => {
+        if (res && res.status === 200) caches.open(CACHE_NAME).then((c) => c.put(request, res.clone()));
+        return res;
+      }))
+    );
     return;
   }
 
   event.respondWith(
     fetch(request)
-      .then((response) => {
-        // 只缓存正常的成功响应
-        if (response && response.status === 200) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        }
-        return response;
+      .then((res) => {
+        if (res && res.status === 200) caches.open(CACHE_NAME).then((c) => c.put(request, res.clone()));
+        return res;
       })
-      .catch(() =>
-        caches
-          .match(request)
-          .then((cached) => cached || caches.match('./index.html'))
-      )
+      .catch(() => caches.match(request).then((hit) => hit || caches.match('/index.html')))
   );
 });
