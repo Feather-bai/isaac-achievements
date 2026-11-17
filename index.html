@@ -208,12 +208,6 @@ body {
   color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
-/* 搜索时该标签页有匹配结果的高亮 */
-.tab-btn.has-match {
-  border-color: var(--gold);
-  background: var(--rec-soft);
-}
-.tab-btn.has-match .tab-label { color: var(--gold); }
 .tab-label { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tab-prog { height: 5px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
 .tab-prog-fill { display: block; height: 100%; width: 0%; border-radius: 999px; background: var(--accent); transition: width .4s ease; }
@@ -221,6 +215,20 @@ body {
 
 /* ============ Main content ============ */
 main { max-width: 1480px; margin: 0 auto; padding: 22px 20px 80px; }
+
+/* ============ 主页面搜索结果（精确 / 模糊两栏） ============ */
+.search-results { max-width: 1480px; margin: 0 auto; padding: 22px 20px 80px; }
+.search-results-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.search-results h3 { font-size: 14px; color: var(--text-2); margin: 14px 0 8px; }
+.search-exact-item { display: flex; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.search-exact-item .codex-sub { min-width: 0; }
+.search-exact-item .ach-title-text { font-size: 15px; font-weight: 700; color: var(--text); text-decoration: none; }
+.search-exact-item .ach-title-text:hover { color: var(--accent); }
+.search-fuzzy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+.search-fuzzy-grid .codex-icon { width: 56px; height: 56px; cursor: pointer; }
+.search-fuzzy-detail { grid-column: 1 / -1; padding: 10px 12px; border-radius: 10px;
+  background: var(--surface-2); border: 1px solid var(--border); font-size: 13px; color: var(--text-2); }
+
 .tabpanel { display: none; animation: fadeIn .25s ease; }
 .tabpanel.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -911,6 +919,16 @@ body.topbar-collapsed .collapse-ico { transform: rotate(180deg); }
 </div>
 
 <main id="main"></main>
+
+<!-- 主页面搜索结果：精确查找（行）/ 模糊搜索（仅图标） -->
+<div id="searchResults" class="search-results" hidden>
+  <div class="search-results-head">
+    <span id="searchResultsTitle"></span>
+    <button id="searchResultsClose" class="tool-btn">返回清单</button>
+  </div>
+  <div id="searchResultsExact"></div>
+  <div id="searchResultsFuzzy"></div>
+</div>
 
 <!-- 图鉴悬浮窗：必须在主脚本之前（主脚本解析时即调用 codexInit） -->
 <button id="codexFab" class="codex-fab" aria-label="打开道具图鉴">道具</button>
@@ -1749,15 +1767,150 @@ function toggle(id) {
 /* ---------- 搜索 / 筛选 ---------- */
 const searchEl = document.getElementById('search');
 const priEl = document.getElementById('priFilter');
+const searchResultsEl = document.getElementById('searchResults');
 let hideDone = false;   // 是否隐藏已完成的成就
 
-// 模糊搜索评分：返回 0（不匹配）或 >0（匹配度得分）
-// 允许 query 中有 1~2 个字符缺失（错别字/多余字容错），按序匹配 text 中的字符
-function applyFilter(opts) {
-  const q = searchEl.value.trim().toLowerCase();
+/* ---------- 成就搜索索引（含标题拼音，来自 /data/ach-py.json） ---------- */
+let achievementSearchIndex = null;
+let achPyPromise = null;
+
+function loadAchPinyin() {
+  if (!achPyPromise) {
+    achPyPromise = fetch('/data/ach-py.json')
+      .then(r => r.ok ? r.json() : {})
+      .catch(() => ({}));
+  }
+  return achPyPromise;
+}
+
+// 中文标题 → 逐字全拼 / 首字母（与 scripts/gen-ach-pinyin.mjs 产出的单字表配合）
+function achPyEncode(text, map) {
+  let py = '', ini = '';
+  for (const ch of String(text || '')) {
+    const code = ch.codePointAt(0);
+    if (code >= 0x4e00 && code <= 0x9fff) {
+      const p = map[ch] || '';
+      py += p;
+      ini += p[0] || '';
+    } else if (/[a-z0-9]/i.test(ch)) {
+      py += ch.toLowerCase();
+      ini += ch.toLowerCase();
+    }
+    // 其余字符（标点/空格）跳过
+  }
+  return { py, ini };
+}
+
+function getAchievementIndex() {
+  if (achievementSearchIndex) return Promise.resolve(achievementSearchIndex);
+  return loadAchPinyin().then(map => {
+    if (!achievementSearchIndex) {
+      achievementSearchIndex = buildSearchIndex(DATA.map(d => {
+        const { py, ini } = achPyEncode(d.title, map);
+        return {
+          id: +d.id, kind: 'achievement', name: d.title, en: d.en || '',
+          py, ini, reward: d.reward || '', cond: d.cond || '',
+        };
+      }), {});
+    }
+    return achievementSearchIndex;
+  });
+}
+
+// 成就图标：优先道具/饰品图标，其次成就图集
+function achIconStyle(item) {
+  const c = wiconCell(item);
+  if (c) return iconStyle(c.sheet, c.cell);
+  if (POS[item.id]) return iconStyle('atlas-ach', cellOf(POS[item.id], 64, 20));
+  return '';
+}
+
+// 列表工具栏的优先级筛选（结果页同样生效）
+function priAllowed(item) {
   const pri = priEl.value;
-  // 自动跳转仅在搜索输入等筛选事件时发生；用户主动点击标签页时不再被拉回去
-  const allowJump = !opts || opts.jump !== false;
+  if (!pri) return true;
+  const p = effectivePri(item);
+  return pri === 'none' ? p === '' : p === pri;
+}
+
+let searchToken = 0;
+// 主页面搜索：精确 / 模糊两栏。opts 仅为兼容 applyFilter 的调用方，此处不使用。
+async function runMainSearch(opts) {
+  const token = ++searchToken;
+  const q = searchEl.value.trim();
+  const box = searchResultsEl;
+  if (!q) {
+    box.hidden = true;
+    main.hidden = false;
+    applyFilter();
+    return;
+  }
+  const idx = await getAchievementIndex();
+  if (token !== searchToken) return;   // 已有更新的搜索，丢弃本次结果
+
+  const byId = new Map(DATA.map(d => [+d.id, d]));
+  const visible = d => !!d && priAllowed(d) && !(hideDone && state.completed.has(String(d.id)));
+
+  // 精确：标题/英文名/id 命中，再并入解锁奖励与条件的文本命中（与旧 applyFilter 一致）
+  const bySearch = searchExact(idx, q);
+  const qLower = q.toLowerCase();
+  const byText = DATA.filter(d =>
+    (d.title + ' ' + d.reward + ' ' + d.cond).toLowerCase().includes(qLower));
+  const seen = new Set(bySearch.map(i => +i.id));
+  for (const d of byText) {
+    if (!seen.has(+d.id)) { seen.add(+d.id); bySearch.push({ id: +d.id, kind: 'achievement' }); }
+  }
+  const exact = bySearch.filter(i => visible(byId.get(+i.id)));
+
+  // 模糊：别名 / 错别字 / 拼音 / 子序列，仅在可见范围内匹配，图标即结果
+  const exKeys = new Set(exact.map(i => i.kind + ':' + i.id));
+  const sub = idx.filter(i => visible(byId.get(+i.id)));
+  const fuzzy = searchFuzzy(sub, q, exKeys);
+
+  main.hidden = true;
+  box.hidden = false;
+  document.getElementById('searchResultsTitle').textContent =
+    '搜索「' + q + '」：精确 ' + exact.length + ' · 模糊 ' + fuzzy.length;
+
+  document.getElementById('searchResultsExact').innerHTML = '<h3>精确查找</h3>' +
+    (exact.length ? exact.map(i => {
+      const d = byId.get(+i.id);
+      return '<div class="search-exact-item">' +
+        '<div class="codex-icon" style="' + achIconStyle(d) + '"></div>' +
+        '<a class="ach-title-text" href="' + titleHref(d) + '" data-wiki="1">' + esc(d.title) + '</a>' +
+        '<span class="codex-sub">' + esc(d.reward || '') + '</span></div>';
+    }).join('') : '<div class="codex-sub">无</div>');
+
+  document.getElementById('searchResultsFuzzy').innerHTML = '<h3>模糊搜索（图标即结果）</h3>' +
+    '<div class="search-fuzzy-grid">' + (fuzzy.length ? fuzzy.map(i => {
+      const d = byId.get(+i.id);
+      return '<div class="codex-icon" style="' + achIconStyle(d) + '" data-ach="' + d.id + '"></div>';
+    }).join('') : '<div class="codex-sub">无</div>') +
+    '<div class="search-fuzzy-detail" hidden></div></div>';
+}
+
+document.getElementById('searchResultsClose').addEventListener('click', () => {
+  searchEl.value = '';
+  runMainSearch();
+});
+document.getElementById('searchResultsFuzzy').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-ach]');
+  const box = document.querySelector('.search-fuzzy-detail');
+  if (!box) return;
+  if (!el) { box.hidden = true; return; }
+  const d = DATA.find(x => +x.id === +el.dataset.ach);
+  if (!d) return;
+  if (box.dataset.ach === el.dataset.ach && !box.hidden) { box.hidden = true; return; }  // 再点一次收起
+  box.dataset.ach = el.dataset.ach;
+  box.hidden = false;
+  box.innerHTML = '<strong>' + esc(d.title) + '</strong>　' + esc(d.cond || '');
+});
+
+function applyFilter(opts) {
+  if (searchEl.value.trim()) return runMainSearch(opts);   // 结果页由 runMainSearch 负责
+  searchResultsEl.hidden = true;
+  main.hidden = false;
+  const pri = priEl.value;
 
   // 在 DATA 上计算每个标签页的可见 ID（与面板是否已渲染无关）
   const byTab = {};
@@ -1765,10 +1918,6 @@ function applyFilter(opts) {
     const ids = new Set();
     for (const item of DATA) {
       if (!tab.types.includes(item.type)) continue;
-      if (q) {
-        const hay = (item.title + ' ' + item.reward + ' ' + item.cond + ' ' + (item.char || '')).toLowerCase();
-        if (!hay.includes(q)) continue;
-      }
       if (pri) {
         const p = effectivePri(item);
         if (pri === 'none' ? p !== '' : p !== pri) continue;
@@ -1777,16 +1926,6 @@ function applyFilter(opts) {
       ids.add(String(item.id));
     }
     byTab[tab.id] = ids;
-  }
-
-  // 搜索时自动跳转到第一个有匹配结果的标签页（目标不是当前页才跳，避免重复渲染）
-  if (allowJump && q) {
-    const first = TAB_DEFS.find(t => byTab[t.id].size);
-    if (first && first.id !== currentTab) {
-      currentTab = first.id;
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === currentTab));
-      ensureActivePanel();
-    }
   }
 
   document.querySelectorAll('.tabpanel').forEach(panel => {
@@ -1805,13 +1944,8 @@ function applyFilter(opts) {
     const empty = panel.querySelector('.empty-state');
     if (empty) empty.classList.toggle('show', !panelHas);
   });
-
-  document.querySelectorAll('.tab-btn').forEach(b => {
-    const ids = byTab[b.dataset.tab];
-    b.classList.toggle('has-match', !!q && !!ids && ids.size > 0);
-  });
 }
-searchEl.addEventListener('input', applyFilter);
+searchEl.addEventListener('input', () => runMainSearch());
 priEl.addEventListener('change', applyFilter);
 
 /* 隐藏已完成成就 */
@@ -2731,6 +2865,8 @@ load();
 // 用户提供的自定义图标（按成就标题匹配），作为默认图标（可被用户再次上传覆盖）
 applyUserIcons();
 generateWikiIcons();
+// 预热成就搜索索引（含拼音），首个按键无需等待构建
+getAchievementIndex().catch(() => {});
 codexInit();
 renderTabs();
 renderAll();
