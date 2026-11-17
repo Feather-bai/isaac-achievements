@@ -1,8 +1,10 @@
 /* 以撒成就清单 - Service Worker
  * 页面 network-first（尽快拿到新版本），图集/数据 cache-first（体积大，URL 带 ?v= 版本号）。
  */
-const CACHE_NAME = 'isaac-checklist-v5';
+const CACHE_NAME = 'isaac-checklist-v6';
 const CORE = ['/', '/index.html', '/pwa/manifest.json'];
+// 页面数据（成就/拼音）随页面版本一起更新：cache: 'reload' 绕过本地缓存取最新副本
+const PAGE_DATA = ['/data/ach-py.json'];
 const DATA = ['/data/codex.json'];
 
 self.addEventListener('install', (event) => {
@@ -20,6 +22,12 @@ self.addEventListener('install', (event) => {
       }
     } catch (e) { /* 离线安装：仅缓存核心页面 */ }
     await cache.addAll(CORE.concat(assets, DATA));
+    await Promise.all(PAGE_DATA.map(async (u) => {
+      try {
+        const res = await fetch(u, { cache: 'reload' });
+        if (res && res.status === 200) await cache.put(u, res);
+      } catch (e) { /* 离线安装：跳过页面数据 */ }
+    }));
     await self.skipWaiting();
   })());
 });
