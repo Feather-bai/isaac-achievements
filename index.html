@@ -1256,63 +1256,82 @@ function cardHtml(item) {
   '</div>';
 }
 
+const renderedPanels = new Set();
+
+function renderPanel(tab) {
+  if (renderedPanels.has(tab.id)) return;
+  renderedPanels.add(tab.id);
+
+  const panel = document.createElement('section');
+  panel.className = 'tabpanel' + (tab.id === currentTab ? ' active' : '');
+  panel.id = 'panel-' + tab.id;
+
+  const desc = document.createElement('div');
+  desc.className = 'panel-desc';
+  desc.textContent = tab.desc;
+  panel.appendChild(desc);
+
+  for (const [gname, items] of buildGroups(tab)) {
+    const sec = document.createElement('div');
+    sec.className = 'group-section';
+    sec.dataset.group = gname || 'main';
+    if (gname) {
+      const hdr = document.createElement('div');
+      hdr.className = 'group-header';
+      const nm = document.createElement('h3');
+      nm.className = 'group-name';
+      const av = document.createElement('span');
+      av.className = 'group-avatar';
+      av.textContent = gname === '全角色' ? '★' : gname.slice(0, 1);
+      nm.appendChild(av);
+      nm.appendChild(document.createTextNode(gname));
+      hdr.appendChild(nm);
+      const bar = document.createElement('div');
+      bar.className = 'group-bar';
+      bar.innerHTML = '<div class="group-fill"></div>';
+      hdr.appendChild(bar);
+      const cnt = document.createElement('span');
+      cnt.className = 'group-count';
+      hdr.appendChild(cnt);
+      // 分栏收起按钮
+      const collapseG = document.createElement('button');
+      collapseG.className = 'group-collapse';
+      collapseG.type = 'button';
+      collapseG.title = '收起 / 展开该分栏';
+      collapseG.innerHTML = '<span class="gc-ico">▾</span>';
+      hdr.appendChild(collapseG);
+      sec.appendChild(hdr);
+    }
+    const grid = document.createElement('div');
+    grid.className = 'ach-grid';
+    grid.innerHTML = items.map(cardHtml).join('');
+    sec.appendChild(grid);
+    panel.appendChild(sec);
+  }
+
+  const empty = document.createElement('div');
+  empty.className = 'empty-state';
+  empty.id = 'empty-' + tab.id;
+  empty.innerHTML = '<div class="e-icon">🔎</div>没有找到匹配的成就，试试其他关键词吧';
+  panel.appendChild(empty);
+
+  main.appendChild(panel);
+}
+
+// 渲染当前标签页（首次调用时构建 DOM），并同步完成状态与分栏进度
+function ensureActivePanel() {
+  const tab = TAB_DEFS.find(t => t.id === currentTab) || TAB_DEFS[0];
+  currentTab = tab.id;
+  renderPanel(tab);
+  document.querySelectorAll('.tabpanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + currentTab));
+  updateDoneClasses();
+  updateProgress();
+}
+
 function renderAll() {
   main.innerHTML = '';
-  for (const tab of TAB_DEFS) {
-    const panel = document.createElement('section');
-    panel.className = 'tabpanel' + (tab.id === currentTab ? ' active' : '');
-    panel.id = 'panel-' + tab.id;
-
-    const desc = document.createElement('div');
-    desc.className = 'panel-desc';
-    desc.textContent = tab.desc;
-    panel.appendChild(desc);
-
-    for (const [gname, items] of buildGroups(tab)) {
-      const sec = document.createElement('div');
-      sec.className = 'group-section';
-      sec.dataset.group = gname || 'main';
-      if (gname) {
-        const hdr = document.createElement('div');
-        hdr.className = 'group-header';
-        const nm = document.createElement('h3');
-        nm.className = 'group-name';
-        const av = document.createElement('span');
-        av.className = 'group-avatar';
-        av.textContent = gname === '全角色' ? '★' : gname.slice(0,1);
-        nm.appendChild(av);
-        nm.appendChild(document.createTextNode(gname));
-        hdr.appendChild(nm);
-        const bar = document.createElement('div');
-        bar.className = 'group-bar';
-        bar.innerHTML = '<div class="group-fill"></div>';
-        hdr.appendChild(bar);
-        const cnt = document.createElement('span');
-        cnt.className = 'group-count';
-        hdr.appendChild(cnt);
-        // 分栏收起按钮
-        const collapseG = document.createElement('button');
-        collapseG.className = 'group-collapse';
-        collapseG.type = 'button';
-        collapseG.title = '收起 / 展开该分栏';
-        collapseG.innerHTML = '<span class="gc-ico">▾</span>';
-        hdr.appendChild(collapseG);
-        sec.appendChild(hdr);
-      }
-      const grid = document.createElement('div');
-      grid.className = 'ach-grid';
-      grid.innerHTML = items.map(cardHtml).join('');
-      sec.appendChild(grid);
-      panel.appendChild(sec);
-    }
-
-    const empty = document.createElement('div');
-    empty.className = 'empty-state';
-    empty.id = 'empty-' + tab.id;
-    empty.innerHTML = '<div class="e-icon">🔎</div>没有找到匹配的成就，试试其他关键词吧';
-    panel.appendChild(empty);
-    main.appendChild(panel);
-  }
+  renderedPanels.clear();
+  ensureActivePanel();
 }
 
 /* ---------- 进度 ---------- */
@@ -1501,55 +1520,57 @@ let hideDone = false;   // 是否隐藏已完成的成就
 function applyFilter() {
   const q = searchEl.value.trim().toLowerCase();
   const pri = priEl.value;
-  let firstMatchTab = null;   // 第一个有匹配结果的标签页
-  const matchTabs = new Set(); // 所有有匹配结果的标签页
+
+  // 在 DATA 上计算每个标签页的可见 ID（与面板是否已渲染无关）
+  const byTab = {};
+  for (const tab of TAB_DEFS) {
+    const ids = new Set();
+    for (const item of DATA) {
+      if (!tab.types.includes(item.type)) continue;
+      if (q) {
+        const hay = (item.title + ' ' + item.reward + ' ' + item.cond + ' ' + (item.char || '')).toLowerCase();
+        if (!hay.includes(q)) continue;
+      }
+      if (pri) {
+        const p = effectivePri(item);
+        if (pri === 'none' ? p !== '' : p !== pri) continue;
+      }
+      if (hideDone && state.completed.has(String(item.id))) continue;
+      ids.add(String(item.id));
+    }
+    byTab[tab.id] = ids;
+  }
+
+  // 搜索时自动跳转到第一个有匹配结果的标签页（目标不是当前页才跳，避免重复渲染）
+  if (q) {
+    const first = TAB_DEFS.find(t => byTab[t.id].size);
+    if (first && first.id !== currentTab) {
+      currentTab = first.id;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === currentTab));
+      ensureActivePanel();
+    }
+  }
+
   document.querySelectorAll('.tabpanel').forEach(panel => {
+    const ids = byTab[panel.id.replace('panel-', '')] || new Set();
     let panelHas = false;
     panel.querySelectorAll('.group-section').forEach(sec => {
       let groupHas = false;
       sec.querySelectorAll('.ach-card').forEach(card => {
-        const item = DATA.find(i => String(i.id) === card.dataset.id);
-        if (!item) { card.classList.add('hidden'); return; }
-        let show = true;
-        if (q) {
-          const hay = (item.title + ' ' + item.reward + ' ' + item.cond + ' ' + (item.char || '')).toLowerCase();
-          show = hay.includes(q);
-        }
-        if (show && pri) {
-          const p = effectivePri(item);
-          show = pri === 'none' ? p === '' : p === pri;
-        }
-        // 隐藏已完成成就
-        if (show && hideDone && state.completed.has(String(item.id))) {
-          show = false;
-        }
-        card.classList.toggle('hidden', !show);
-        if (show) groupHas = true;
+        const on = ids.has(card.dataset.id);
+        card.classList.toggle('hidden', !on);
+        if (on) groupHas = true;
       });
       sec.classList.toggle('hidden', !groupHas);
       if (groupHas) panelHas = true;
     });
     const empty = panel.querySelector('.empty-state');
     if (empty) empty.classList.toggle('show', !panelHas);
-    if (panelHas) {
-      const tid = panel.id.replace('panel-', '');
-      matchTabs.add(tid);
-      if (!firstMatchTab) firstMatchTab = tid;
-    }
   });
 
-  // 高亮所有有匹配结果的标签页（搜索时）
   document.querySelectorAll('.tab-btn').forEach(b => {
-    const hasMatch = matchTabs.has(b.dataset.tab);
-    b.classList.toggle('has-match', q && hasMatch);
+    b.classList.toggle('has-match', !!q && byTab[b.dataset.tab].size > 0);
   });
-
-  // 搜索时自动跳转到第一个有匹配结果的标签页
-  if (q && firstMatchTab && firstMatchTab !== currentTab) {
-    currentTab = firstMatchTab;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === firstMatchTab));
-    document.querySelectorAll('.tabpanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + firstMatchTab));
-  }
 }
 searchEl.addEventListener('input', applyFilter);
 priEl.addEventListener('change', applyFilter);
@@ -1574,7 +1595,8 @@ tabsEl.addEventListener('click', (e) => {
   if (!btn) return;
   currentTab = btn.dataset.tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
-  document.querySelectorAll('.tabpanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + currentTab));
+  ensureActivePanel();
+  applyFilter();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 

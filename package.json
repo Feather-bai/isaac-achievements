@@ -9,9 +9,10 @@
     "build:clean": "rimraf build",
     "build:copy": "node scripts/build.mjs",
     "build:check": "tsc --noEmit -p tsconfig.app.json",
+    "gen": "node scripts/extract-sources.mjs && node scripts/snapshot-data.mjs && node scripts/gen-assets.mjs && node scripts/gen-codex.mjs && node scripts/patch-html.mjs",
     "preview-api": "npm run build && wrangler pages dev",
     "deploy": "npm run build && wrangler pages deploy build",
-    "test": "vitest run",
+    "test": "vitest run && node --test scripts/tests/*.test.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {
