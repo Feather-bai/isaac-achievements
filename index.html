@@ -1855,7 +1855,7 @@ async function runMainSearch(opts) {
   const bySearch = searchExact(idx, q);
   const qLower = q.toLowerCase();
   const byText = DATA.filter(d =>
-    (d.title + ' ' + d.reward + ' ' + d.cond).toLowerCase().includes(qLower));
+    (d.title + ' ' + d.reward + ' ' + d.cond + ' ' + (d.char || '')).toLowerCase().includes(qLower));
   const seen = new Set(bySearch.map(i => +i.id));
   for (const d of byText) {
     if (!seen.has(+d.id)) { seen.add(+d.id); bySearch.push({ id: +d.id, kind: 'achievement' }); }
