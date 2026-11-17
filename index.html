@@ -1517,9 +1517,11 @@ let hideDone = false;   // 是否隐藏已完成的成就
 
 // 模糊搜索评分：返回 0（不匹配）或 >0（匹配度得分）
 // 允许 query 中有 1~2 个字符缺失（错别字/多余字容错），按序匹配 text 中的字符
-function applyFilter() {
+function applyFilter(opts) {
   const q = searchEl.value.trim().toLowerCase();
   const pri = priEl.value;
+  // 自动跳转仅在搜索输入等筛选事件时发生；用户主动点击标签页时不再被拉回去
+  const allowJump = !opts || opts.jump !== false;
 
   // 在 DATA 上计算每个标签页的可见 ID（与面板是否已渲染无关）
   const byTab = {};
@@ -1542,7 +1544,7 @@ function applyFilter() {
   }
 
   // 搜索时自动跳转到第一个有匹配结果的标签页（目标不是当前页才跳，避免重复渲染）
-  if (q) {
+  if (allowJump && q) {
     const first = TAB_DEFS.find(t => byTab[t.id].size);
     if (first && first.id !== currentTab) {
       currentTab = first.id;
@@ -1569,7 +1571,8 @@ function applyFilter() {
   });
 
   document.querySelectorAll('.tab-btn').forEach(b => {
-    b.classList.toggle('has-match', !!q && byTab[b.dataset.tab].size > 0);
+    const ids = byTab[b.dataset.tab];
+    b.classList.toggle('has-match', !!q && !!ids && ids.size > 0);
   });
 }
 searchEl.addEventListener('input', applyFilter);
@@ -1596,7 +1599,7 @@ tabsEl.addEventListener('click', (e) => {
   currentTab = btn.dataset.tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
   ensureActivePanel();
-  applyFilter();
+  applyFilter({ jump: false });
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
