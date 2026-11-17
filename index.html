@@ -972,6 +972,7 @@ function wikiUrl(name) { return WIKI_BASE + encodeURIComponent(name); }
 
 /* ---------- 从 wiki 返回时恢复现场 ---------- */
 const VIEW_KEY = 'isaac_last_view';
+const VIEW_PENDING = 'isaac_last_view_pending';
 
 function currentViewState() {
   return {
@@ -1018,6 +1019,7 @@ function restoreView(state) {
 
 function openWiki(url) {
   saveView();
+  try { sessionStorage.setItem(VIEW_PENDING, '1'); } catch (e) {}
   // 部分 wlink 带 #锚点，直接沿用原 URL，不拼接查询参数
   window.location.href = url;
 }
@@ -2163,14 +2165,20 @@ document.addEventListener('click', (ev) => {
 }, true);
 
 window.addEventListener('pageshow', (ev) => {
-  let raw = null;
-  try { raw = sessionStorage.getItem(VIEW_KEY); } catch (e) {}
+  let raw = null, pending = false;
+  try {
+    raw = sessionStorage.getItem(VIEW_KEY);
+    pending = !!sessionStorage.getItem(VIEW_PENDING);
+  } catch (e) {}
   if (!raw) return;
   let st = null;
   try { st = JSON.parse(raw); } catch (e) { return; }
-  // iOS 后退多为普通重载（persisted=false），只能用保存时间判断是否「刚从 wiki 回来」
+  // 只有「刚从 wiki 跳走又回来」才恢复：bfcache 命中，或离开前写过 pending 标记。
+  // 用户主动刷新时没有 pending，做一个干净的加载。
+  if (!ev.persisted && !pending) return;
+  try { sessionStorage.removeItem(VIEW_PENDING); } catch (e) {}
   const age = Date.now() - (st.at || 0);
-  if (!ev.persisted && age > 30 * 60 * 1000) return;   // 30 分钟内才恢复
+  if (age > 30 * 60 * 1000) return;   // 标记陈旧（例如跳走后很久才回来）不恢复
   restoreView(st);
   toast('已回到上次浏览位置');
 });
