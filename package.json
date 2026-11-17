@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240529.0",
+    "pinyin-pro": "^3.29.5",
     "rimraf": "^5.0.5",
     "typescript": "^5.2.2",
     "vite": "^5.3.1",
