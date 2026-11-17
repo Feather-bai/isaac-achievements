@@ -18,18 +18,22 @@ for (const id of ['atlas-json', 'collect-b64', 'cards-b64', 'trinket-b64']) {
 }
 html = html.replace(/^const (ATLAS_B64|COLLECT_B64|CARDS_B64|TRINKET_B64) = document\.getElementById\('[a-z0-9-]+'\)\.textContent\.trim\(\);\n/gm, '');
 
-// 2) 注入 ASSETS 常量（若尚未存在）
+// 2) 注入/更新 ASSETS 常量（以 public/assets/manifest.json 为唯一版本源）
 const manifest = JSON.parse(readFileSync(resolve(root, 'public/assets/manifest.json'), 'utf8'));
-const marker = 'const ASSETS = ';
-if (!html.includes(marker)) {
+const assetsLine = 'const ASSETS = ' + JSON.stringify(manifest) + ';';
+const assetsRe = /^const ASSETS = .*;$/m;
+if (assetsRe.test(html)) {
+  html = html.replace(assetsRe, () => assetsLine);
+} else {
   const anchor = "const DATA = JSON.parse(document.getElementById('data-json').textContent);";
   if (!html.includes(anchor)) throw new Error('找不到 DATA 解析锚点');
-  html = html.replace(anchor, anchor + '\n' + marker + JSON.stringify(manifest) + ';');
+  html = html.replace(anchor, () => anchor + '\n' + assetsLine);
 }
 
-// 3) 首屏必需图集预加载（成就卡片图标）
-const preload = '<link rel="preload" as="image" href="/assets/atlas-ach.png" fetchpriority="high">\n';
-if (!html.includes('/assets/atlas-ach.png')) html = html.replace('</head>', preload + '</head>');
+// 3) 首屏必需图集预加载（成就卡片图标）；URL 必须与 assetUrl() 逐字节一致
+const preloadRe = /<link rel="preload" as="image" href="\/assets\/atlas-ach\.png[^"]*"[^>]*>\n?/;
+const preload = '<link rel="preload" as="image" href="/assets/atlas-ach.png?v=' + manifest.version + '" fetchpriority="high">\n';
+html = preloadRe.test(html) ? html.replace(preloadRe, () => preload) : html.replace('</head>', () => preload + '</head>');
 
 writeFileSync(file, html);
 console.log('index.html patched:', (html.length / 1024).toFixed(0), 'KB');

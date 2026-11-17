@@ -1,24 +1,27 @@
 /* 以撒成就清单 - Service Worker
- * 页面 network-first（尽快拿到新版本），图集/数据 cache-first（体积大且按内容命名）。
+ * 页面 network-first（尽快拿到新版本），图集/数据 cache-first（体积大，URL 带 ?v= 版本号）。
  */
-const CACHE_NAME = 'isaac-checklist-v4';
+const CACHE_NAME = 'isaac-checklist-v5';
 const CORE = ['/', '/index.html', '/pwa/manifest.json'];
-const PRECACHE = [
-  '/assets/atlas-ach.png',
-  '/assets/item-collect.webp',
-  '/assets/item-trinket.webp',
-  '/assets/item-cards.webp',
-  '/assets/item-runes.webp',
-  '/assets/item-pills.webp',
-  '/data/codex.json',
-];
+const DATA = ['/data/codex.json'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(CORE.concat(PRECACHE)))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    // 预缓存 URL 与页面请求保持一致（/assets/<file>?v=<version>），版本升级后自动拉取新文件
+    let assets = [];
+    try {
+      const res = await fetch('/assets/manifest.json', { cache: 'no-store' });
+      const m = res.ok ? await res.json() : null;
+      if (m && m.version) {
+        assets = Object.values(m)
+          .filter((s) => s && typeof s === 'object' && s.file)
+          .map((s) => '/assets/' + s.file + '?v=' + m.version);
+      }
+    } catch (e) { /* 离线安装：仅缓存核心页面 */ }
+    await cache.addAll(CORE.concat(assets, DATA));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {

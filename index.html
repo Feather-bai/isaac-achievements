@@ -723,7 +723,7 @@ body.topbar-collapsed .collapse-ico { transform: rotate(180deg); }
   .search-wrap input { padding: 9px 12px 9px 34px; }
 }
 </style>
-<link rel="preload" as="image" href="/assets/atlas-ach.png" fetchpriority="high">
+<link rel="preload" as="image" href="/assets/atlas-ach.png?v=2026-11-16.1" fetchpriority="high">
 </head>
 <body>
 
@@ -1050,15 +1050,19 @@ function titleHref(item) {
 }
 
 /* ---------- 外置图集裁剪 ---------- */
+function assetUrl(file) {
+  return '/assets/' + file + '?v=' + ASSETS.version;
+}
 function iconStyle(sheetName, cell) {
   const sheet = ASSETS[sheetName];
   if (!sheet) return '';
   const col = cell % sheet.cols;
   const row = Math.floor(cell / sheet.cols);
-  const scale = 64 / sheet.cell;            // 图标显示尺寸固定 64
-  return 'background-image:url(/assets/' + sheet.file + ');' +
-    'background-size:' + (sheet.w * scale) + 'px ' + (sheet.h * scale) + 'px;' +
-    'background-position:-' + (col * sheet.cell * scale) + 'px -' + (row * sheet.cell * scale) + 'px;' +
+  const px = sheet.cols > 1 ? (col / (sheet.cols - 1)) * 100 : 0;
+  const py = sheet.rows > 1 ? (row / (sheet.rows - 1)) * 100 : 0;
+  return 'background-image:url(' + assetUrl(sheet.file) + ');' +
+    'background-size:' + (sheet.cols * 100) + '% ' + (sheet.rows * 100) + '%;' +
+    'background-position:' + px + '% ' + py + '%;' +
     'background-repeat:no-repeat;';
 }
 function cellOf(pos, size, cols) {
@@ -1066,7 +1070,9 @@ function cellOf(pos, size, cols) {
 }
 function clampCell(sheetName, cell) {
   const sheet = ASSETS[sheetName];
-  return Math.max(0, Math.min(sheet.cols * sheet.rows - 1, cell));
+  if (!sheet) return null;
+  const max = sheet.cols * sheet.rows - 1;
+  return Number.isInteger(cell) && cell >= 0 && cell <= max ? cell : null;
 }
 function wiconCell(item) {
   const type = item.wicon, id = item.wicon_id;
@@ -1075,18 +1081,29 @@ function wiconCell(item) {
   if (!Number.isFinite(n)) return null;
   if (type === 'collectibles') {
     const pos = IPOS.collectibles[String(n).padStart(3, '0')];
-    return pos ? { sheet: 'item-collect', cell: clampCell('item-collect', cellOf(pos, 32, 20)) } : null;
+    if (!pos) return null;
+    const c = clampCell('item-collect', cellOf(pos, 32, 20));
+    return c === null ? null : { sheet: 'item-collect', cell: c };
   }
   if (type === 'trinket') {
     const pos = IPOS.trinkets[String(n).padStart(3, '0')];
-    return pos ? { sheet: 'item-trinket', cell: clampCell('item-trinket', cellOf(pos, 32, 20)) } : null;
+    if (!pos) return null;
+    const c = clampCell('item-trinket', cellOf(pos, 32, 20));
+    return c === null ? null : { sheet: 'item-trinket', cell: c };
   }
   if (type === 'cards') {
-    if (n >= 32 && n <= 39) return { sheet: 'item-runes', cell: n - 32 };
+    if (n >= 32 && n <= 39) {
+      const c = clampCell('item-runes', n - 32);
+      return c === null ? null : { sheet: 'item-runes', cell: c };
+    }
     // item-cards.webp 按 id 1–97 顺序铺格（32–39 保留空格），格号 = id-1
-    return { sheet: 'item-cards', cell: clampCell('item-cards', n - 1) };
+    const c = clampCell('item-cards', n - 1);
+    return c === null ? null : { sheet: 'item-cards', cell: c };
   }
-  if (type === 'pills') return { sheet: 'item-pills', cell: clampCell('item-pills', n) };
+  if (type === 'pills') {
+    const c = clampCell('item-pills', n);
+    return c === null ? null : { sheet: 'item-pills', cell: c };
+  }
   return null;
 }
 function wiconStyle(item) {
@@ -1207,7 +1224,7 @@ function cardHtml(item) {
   } else if (state.charIcons[item.id]) {
     img = '<img src="' + state.charIcons[item.id] + '" alt="">';
     hasImg = true;
-  } else if (item.wicon && item.wicon_id && wiconCell(item)) {
+  } else if (wiconCell(item)) {
     img = '<div class="atlas-icon" style="' + wiconStyle(item) + '"></div>';
     hasImg = true;
   } else if (POS[item.id]) {
