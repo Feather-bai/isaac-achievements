@@ -811,6 +811,8 @@ body.topbar-collapsed .collapse-ico { transform: rotate(180deg); }
 </style>
 <link rel="preload" as="image" href="/assets/atlas-ach.png?v=2026-11-16.1" fetchpriority="high">
 
+
+
 </head>
 <body>
 
@@ -1760,7 +1762,12 @@ function toggle(id) {
   if (state.completed.has(id)) state.completed.delete(id);
   else state.completed.add(id);
   const card = document.querySelector('.ach-card[data-id="' + id + '"]');
-  if (card) card.classList.toggle('done', state.completed.has(id));
+  if (card) {
+    const isDone = state.completed.has(id);
+    card.classList.toggle('done', isDone);
+    // 「隐藏已完成」开启时，取消勾选的卡片要重新出现
+    if (hideDone && !isDone) card.classList.remove('hidden');
+  }
   updateProgress();
   save();
 }
@@ -2528,6 +2535,7 @@ const CODEX = {
   scrollTop: 0,
   listScroll: 0,
   detail: false,
+  detailKey: '',
 };
 const CODEX_TABS = [
   { id: 'collectible', label: '道具' },
@@ -2573,7 +2581,7 @@ function codexItemHtml(item) {
     '<div ' + codexIconStyle(item) + '></div>' +
     '<div class="codex-meta">' +
       '<div class="codex-name">' + esc(item.name) +
-        (item.quality != null ? '<span class="codex-q">Q' + item.quality + '</span>' : '') + '</div>' +
+        (item.quality != null ? '<span class="codex-q">Q' + esc(item.quality) + '</span>' : '') + '</div>' +
       '<div class="codex-sub">' + esc(item.en || '') + (item.en ? ' · ' : '') + '#' + item.id + '</div>' +
     '</div>' +
   '</div>';
@@ -2657,10 +2665,12 @@ function codexOpenDetail(kind, id) {
   const body = document.getElementById('codexBody');
   if (!CODEX.detail) CODEX.listScroll = body.scrollTop;   // 返回时恢复列表位置
   CODEX.detail = true;
+  CODEX.detailKey = kind + ':' + id;
   // pools 里可能混着字面量 "," 之类的占位 token，过滤掉
   const poolText = (item.pools || []).filter(p => /[A-Za-z0-9_一-鿿]/.test(p)).join('、');
   const pools = poolText ? '<p>道具池：' + esc(poolText) + '</p>' : '';
-  const q = item.quality != null ? '<p>品质：' + '★'.repeat(item.quality) + '（Q' + item.quality + '）</p>' : '';
+  const q = item.quality != null
+    ? '<p>品质：' + esc('★'.repeat(Number(item.quality) || 0)) + '（Q' + esc(item.quality) + '）</p>' : '';
   const desc = item.desc ? '<p>' + esc(item.desc) + '</p>' : '<p>暂无摘要，可点击下方链接查看 wiki。</p>';
   body.innerHTML = '<div class="codex-detail">' +
     '<button class="codex-close" id="codexBack" aria-label="返回列表">←</button>' +
@@ -2679,7 +2689,7 @@ function codexViewState() {
   const b = document.getElementById('codexBody');
   // 详情页时列表已被替换，返回的是之前保存的列表位置
   const scrollTop = b ? (CODEX.detail ? (CODEX.listScroll || 0) : b.scrollTop) : 0;
-  return { kind: CODEX.kind, sort: CODEX.sort, quality: CODEX.quality, query: CODEX.query, scrollTop };
+  return { kind: CODEX.kind, sort: CODEX.sort, quality: CODEX.quality, query: CODEX.query, scrollTop, detailKey: CODEX.detailKey };
 }
 
 function codexRestore(st) {
@@ -2704,7 +2714,17 @@ function codexRestore(st) {
     document.querySelectorAll('.codex-tab')
       .forEach(b => b.classList.toggle('active', b.dataset.kind === CODEX.kind));
     codexRender();
-    if (body) body.scrollTop = st.scrollTop || 0;
+    if (st.detailKey) {
+      // 从图鉴详情跳 wiki 返回：恢复详情页；列表滚动位置要先存好，
+      // 因为 codexOpenDetail 会用当前（详情页）scrollTop 覆盖 listScroll
+      const [k, id] = st.detailKey.split(':');
+      if (k === CODEX.kind) {
+        codexOpenDetail(k, +id);
+        CODEX.listScroll = st.scrollTop || 0;
+      }
+    } else if (body) {
+      body.scrollTop = st.scrollTop || 0;
+    }
   }).catch(() => {});
 }
 
