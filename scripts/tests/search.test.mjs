@@ -56,6 +56,16 @@ test('模糊：别的分类占用的 ID 不排除同名条目', () => {
   assert.equal(ex.has('trinket:488'), false);
   assert.deepEqual(searchFuzzy(mixed, '节拍', ex).map(i => i.kind + ':' + i.id), ['trinket:488']);
 });
+test('模糊：拼音混输 jiepq', () => {
+  assert.deepEqual(searchFuzzy(idx, 'jiepq').map(i => i.id), [488]);
+});
+test('模糊：拼音子序列 gpdz', () => {
+  assert.ok(searchFuzzy(idx, 'gpdz').map(i => i.id).includes(160));
+});
+test('模糊：英文大小写子序列', () => {
+  const en = buildSearchIndex([{ id: 641, kind: 'achievement', name: 'Read It!', en: 'Item Descriptions', py: '', ini: '' }], {});
+  assert.deepEqual(searchFuzzy(en, 'read').map(i => i.id), [641]);
+});
 test('isSubsequence', () => {
   assert.equal(isSubsequence('猫爪', '嗝屁猫的爪子'), true);
   assert.equal(isSubsequence('爪猫', '嗝屁猫的爪子'), false);

@@ -36,6 +36,7 @@ export function buildSearchIndex(items, aliases) {
     return Object.assign({}, it, {
       _name: String(it.name || '').toLowerCase(),
       _en: String(it.en || '').toLowerCase(),
+      _py: String(it.py || '').toLowerCase(),
       _alias: aliasList,
     });
   });
@@ -59,10 +60,11 @@ export function searchFuzzy(index, q, excludeKeys = new Set()) {
     if (excludeKeys.has((it.kind || '') + ':' + it.id)) continue;
     let hit = false;
     if (it._alias.some(a => a.toLowerCase() === s)) hit = true;
-    if (!hit && s.length >= 2 && isSubsequence(s, it.name)) hit = true;
-    if (!hit && it.py && it.py.startsWith(s)) hit = true;
+    if (!hit && s.length >= 2 && isSubsequence(s, it._name)) hit = true;
+    if (!hit && s.length >= 2 && it._py && isSubsequence(s, it._py)) hit = true;
+    if (!hit && it._py && it._py.startsWith(s)) hit = true;
     if (!hit && it.ini && it.ini.startsWith(s)) hit = true;
-    if (!hit && isAscii(s) && it.py && editDistance(s, it.py) <= 1) hit = true;
+    if (!hit && isAscii(s) && it._py && editDistance(s, it._py) <= 1) hit = true;
     if (hit) hits.push(it);
   }
   return hits;
