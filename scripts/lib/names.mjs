@@ -50,8 +50,10 @@ const cleanDesc = (s) => clean(s).replace(/#/g, '\n');
 export function parseEidDescriptions(...luaTexts) {
   const out = { collectibles: {}, trinkets: {}, cards: {}, pills: {} };
   for (const lua of luaTexts) {
-    // 新的 rep / rep+ 表：local repCollectibles={ [id] = {"descId", "名", "描述"}, ... }
-    const tableRe = /local\s+[A-Za-z]*?(Collectibles|Trinkets|Cards|Pills)\s*=\s*\{([\s\S]*?)\n\}/g;
+    // 新版描述表有两种形态，均以 kind 结尾、首字母大小写不一：
+    //   rep/  `local repCollectibles={ ... }`；rep+/ `local collectibles = { ... }`、`local horsepills = { ... }`。
+    // 大小写不敏感 + 惰性前缀即可覆盖，horsepills 由结尾的 pills 归入胶囊。
+    const tableRe = /local\s+[A-Za-z]*?(Collectibles|Trinkets|Cards|Pills)\s*=\s*\{([\s\S]*?)\n\}/gi;
     let t;
     while ((t = tableRe.exec(lua))) {
       const kind = t[1].toLowerCase();

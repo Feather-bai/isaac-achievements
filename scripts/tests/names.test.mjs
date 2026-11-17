@@ -63,3 +63,25 @@ test('parseEidDescriptions 解析 ab+ 位置表', () => {
   const d = parseEidDescriptions(lua);
   assert.equal(d.collectibles[1].desc, '↑ 射速+0.7');
 });
+
+// rep+ 真实形态：小写表名 `local collectibles = {` 与 `local horsepills = {`。
+const REP_PLUS_DESC = `
+---------- Collectibles ----------
+
+local collectibles = {
+	[56] = { "56", "烦事柠檬", "留下一摊水迹#水迹每秒造成24点伤害#水迹在离开房间前持续存在"}, -- Lemon Mishap
+}
+
+---------- Pills ----------
+
+local horsepills = {
+	[20] = {"19", "传送胶囊", "将角色传送至特殊房间"}, -- Telepills
+}
+`;
+
+test('parseEidDescriptions 中 rep+ 小写表覆盖先前的 ab+/rep 层', () => {
+  const d = parseEidDescriptions(REP_DESC, REP_PLUS_DESC);
+  assert.equal(d.collectibles[56].desc, '留下一摊水迹\n水迹每秒造成24点伤害\n水迹在离开房间前持续存在');
+  assert.equal(d.pills[19].name, '传送胶囊');
+  assert.equal(d.collectibles[2].name, '内眼');
+});
