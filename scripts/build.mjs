@@ -1,5 +1,5 @@
 // 构建脚本：把前端静态资源 + functions + lib 组装进 build/ 目录
-// Cloudflare Pages 会按约定编译 functions/ 目录中的函数，并托管 build/ 里的静态资源
+// Cloudflare Pages 会按约定编译 functions/ 目录中的函数，并托管 build/ 根目录的静态资源
 import { cpSync, rmSync, mkdirSync, readdirSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -12,9 +12,9 @@ const build = resolve(root, 'build');
 rmSync(build, { recursive: true, force: true });
 mkdirSync(build, { recursive: true });
 
-// 1. 前端静态资源（自包含单文件应用 + PWA 资源）
+// 1. 前端静态资源：index.html + public/ 内容平铺到根（sw.js、pwa/、assets/、data/、_headers）
 cpSync(resolve(root, 'index.html'), resolve(build, 'index.html'));
-cpSync(resolve(root, 'public'), resolve(build, 'public'), { recursive: true });
+cpSync(resolve(root, 'public'), build, { recursive: true });
 
 // 2. functions/ 目录（Cloudflare Pages Functions）
 cpSync(resolve(root, 'functions'), resolve(build, 'functions'), { recursive: true });
@@ -22,7 +22,7 @@ cpSync(resolve(root, 'functions'), resolve(build, 'functions'), { recursive: tru
 // 3. lib/ 目录（functions 运行时代码依赖）
 cpSync(resolve(root, 'lib'), resolve(build, 'lib'), { recursive: true });
 
-// 移除 lib 中的测试文件（模板同样做法：find build/lib -name '*.test.ts' -delete）
+// 移除 lib 中的测试文件（不进入产物）
 execSync('find lib -name "*.test.ts" -delete', { cwd: build });
 
 console.log('✅ build/ 已生成：');

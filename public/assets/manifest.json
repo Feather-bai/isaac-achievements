@@ -1,0 +1,59 @@
+{
+  "version": "2026-11-18.1",
+  "atlas-ach": {
+    "file": "atlas-ach.png",
+    "cell": 40,
+    "cols": 20,
+    "rows": 33,
+    "w": 800,
+    "h": 1320
+  },
+  "item-collect": {
+    "file": "item-collect.webp",
+    "cell": 32,
+    "cols": 20,
+    "rows": 37,
+    "w": 640,
+    "h": 1184
+  },
+  "item-trinket": {
+    "file": "item-trinket.webp",
+    "cell": 32,
+    "cols": 20,
+    "rows": 10,
+    "w": 640,
+    "h": 320
+  },
+  "item-cards": {
+    "file": "item-cards.webp",
+    "cell": 32,
+    "cols": 20,
+    "rows": 5,
+    "w": 640,
+    "h": 160
+  },
+  "item-runes": {
+    "file": "item-runes.webp",
+    "cell": 32,
+    "cols": 8,
+    "rows": 1,
+    "w": 256,
+    "h": 32
+  },
+  "item-pills": {
+    "file": "item-pills.webp",
+    "cell": 32,
+    "cols": 10,
+    "rows": 5,
+    "w": 320,
+    "h": 160
+  },
+  "eid-inline": {
+    "file": "eid-inline.webp",
+    "cell": 48,
+    "cols": 20,
+    "rows": 9,
+    "w": 960,
+    "h": 432
+  }
+}

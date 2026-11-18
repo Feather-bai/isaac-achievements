@@ -24,3 +24,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# local scratch / SDD artifacts
+.scratch
+.superpowers
+
+# local preview config (Claude Code browser pane)
+.claude/
