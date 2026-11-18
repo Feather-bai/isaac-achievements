@@ -86,7 +86,7 @@ await sharp({
 const collectH = collectRows * 32;
 const trinketH = trinketRows * 32;
 const manifest = {
-  version: '2026-11-16.1',
+  version: '2026-11-18.1',
   'atlas-ach': { file: 'atlas-ach.png', cell: 40, cols: 20, rows: 33, w: 800, h: 1320 },
   'item-collect': { file: 'item-collect.webp', cell: 32, cols: 20, rows: collectRows, w: 640, h: collectH },
   'item-trinket': { file: 'item-trinket.webp', cell: 32, cols: 20, rows: trinketRows, w: 640, h: trinketH },

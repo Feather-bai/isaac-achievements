@@ -773,6 +773,7 @@ body.topbar-collapsed .collapse-ico { transform: rotate(180deg); }
   border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
   border-radius: 8px; padding: 5px 8px; font-size: 13px;
 }
+#codexFilters select { flex: 1 1 140px; min-width: 0; }
 .codex-quality { display: flex; gap: 4px; }
 .codex-quality button {
   width: 30px; height: 26px; border-radius: 7px; font-size: 12px;
@@ -808,8 +809,14 @@ body.topbar-collapsed .collapse-ico { transform: rotate(180deg); }
 .codex-detail { padding: 16px 18px; }
 .codex-detail h3 { font-size: 17px; margin-bottom: 6px; }
 .codex-detail p { font-size: 13px; color: var(--text-2); margin-bottom: 10px; white-space: pre-wrap; }
+.codex-desc { font-size: 13px; color: var(--text-2); margin-bottom: 10px; line-height: 1.6; white-space: pre-wrap; }
+/* 描述里的 EID 内联图标（{{Range}} 之类）与颜色标记 */
+.codex-ri { display: inline-block; width: 1.35em; height: 1.35em; vertical-align: -0.3em; }
 </style>
-<link rel="preload" as="image" href="/assets/atlas-ach.png?v=2026-11-16.1" fetchpriority="high">
+<link rel="preload" as="image" href="/assets/atlas-ach.png?v=2026-11-18.1" fetchpriority="high">
+
+
+
 
 
 
@@ -953,6 +960,10 @@ body.topbar-collapsed .collapse-ico { transform: rotate(180deg); }
         <button data-q="2">2</button><button data-q="3">3</button><button data-q="4">4</button>
       </div>
     </div>
+    <div class="codex-tools" id="codexFilters">
+      <select id="codexTag" aria-label="按标签筛选"></select>
+      <select id="codexPool" aria-label="按道具池筛选"></select>
+    </div>
     <div class="codex-section-title" id="codexSectionTitle"></div>
     <div class="codex-main">
       <div class="codex-body" id="codexBody"></div>
@@ -1047,7 +1058,7 @@ function searchFuzzy(index, q, excludeKeys = new Set()) {
 "use strict";
 
 const DATA = JSON.parse(document.getElementById('data-json').textContent);
-const ASSETS = {"version":"2026-11-16.1","atlas-ach":{"file":"atlas-ach.png","cell":40,"cols":20,"rows":33,"w":800,"h":1320},"item-collect":{"file":"item-collect.webp","cell":32,"cols":20,"rows":37,"w":640,"h":1184},"item-trinket":{"file":"item-trinket.webp","cell":32,"cols":20,"rows":10,"w":640,"h":320},"item-cards":{"file":"item-cards.webp","cell":32,"cols":20,"rows":5,"w":640,"h":160},"item-runes":{"file":"item-runes.webp","cell":32,"cols":8,"rows":1,"w":256,"h":32},"item-pills":{"file":"item-pills.webp","cell":32,"cols":10,"rows":5,"w":320,"h":160}};
+const ASSETS = {"version":"2026-11-18.1","atlas-ach":{"file":"atlas-ach.png","cell":40,"cols":20,"rows":33,"w":800,"h":1320},"item-collect":{"file":"item-collect.webp","cell":32,"cols":20,"rows":37,"w":640,"h":1184},"item-trinket":{"file":"item-trinket.webp","cell":32,"cols":20,"rows":10,"w":640,"h":320},"item-cards":{"file":"item-cards.webp","cell":32,"cols":20,"rows":5,"w":640,"h":160},"item-runes":{"file":"item-runes.webp","cell":32,"cols":8,"rows":1,"w":256,"h":32},"item-pills":{"file":"item-pills.webp","cell":32,"cols":10,"rows":5,"w":320,"h":160},"eid-inline":{"file":"eid-inline.webp","cell":48,"cols":20,"rows":9,"w":960,"h":432}};
 const POS = JSON.parse(document.getElementById('pos-json').textContent);
 const IPOS = JSON.parse(document.getElementById('ipos-json').textContent);
 const TAINTED_CHARS = JSON.parse(document.getElementById('tainted-chars').textContent);
@@ -2531,6 +2542,8 @@ const CODEX = {
   kind: 'collectible',
   sort: 'letter',
   quality: '',
+  tag: '',
+  pool: '',
   query: '',
   scrollTop: 0,
   listScroll: 0,
@@ -2591,15 +2604,170 @@ function codexFiltered() {
   const q = CODEX.query.trim();
   const pieces = CODEX.items.filter(i => i.kind === CODEX.kind);
   const qualityOn = CODEX.quality !== '' && (CODEX.kind === 'collectible' || CODEX.kind === 'trinket');
-  const list = qualityOn ? pieces.filter(i => String(i.quality) === CODEX.quality) : pieces.slice();
+  const poolOn = CODEX.pool !== '' && (CODEX.kind === 'collectible' || CODEX.kind === 'trinket');
+  const tagOn = CODEX.tag !== '' && (CODEX.kind === 'collectible' || CODEX.kind === 'trinket');
+  const list = pieces.filter(i =>
+    (!qualityOn || String(i.quality) === CODEX.quality) &&
+    (!poolOn || (i.pools || []).includes(CODEX.pool)) &&
+    (!tagOn || (i.tags || []).some(t => String(t).split(' ').includes(CODEX.tag)))
+  );
   if (!q) return { exact: [], fuzzy: [], list };
-  // 搜索时品质筛选同样生效：先按品质收窄候选，再精确/模糊匹配
+  // 搜索时品质/道具池/标签筛选同样生效：先收窄候选，再精确/模糊匹配
   const allowed = new Set(list.map(i => i.kind + ':' + i.id));
   const sub = CODEX.index.filter(i => allowed.has(i.kind + ':' + i.id));
   const exact = searchExact(sub, q);
   const exKeys = new Set(exact.map(i => i.kind + ':' + i.id));
   const fuzzy = searchFuzzy(sub, q, exKeys);
   return { exact, fuzzy, list: [] };
+}
+
+// 标签 / 道具池的中文名（数据里是 items_metadata.xml 的英文标签）
+const CODEX_TAG_LABELS = {
+  summonable: '二项性道具（拜占庭）',
+  offensive: '攻击性道具（堕化遗骸白名单）',
+  nocantrip: '无法在挑战「坎特里普」中获得',
+  nolostbr: '游魂的出生权利不生成',
+  nogreed: '贪婪模式不出现',
+  uniquefamiliar: '唯一随从（不可复制）',
+  tearsup: '射速提升道具',
+  monstermanual: '怪物手册可生成',
+  nokeeper: '店主不生成',
+  noeden: '伊甸不随机生成',
+  nochallenge: '挑战模式不出现',
+  nodaily: '每日挑战不出现',
+  lazarusshared: '堕化拉撒路形态共享',
+  lazarussharedglobal: '堕化拉撒路全局共享',
+  quest: '任务道具（不可重随机）',
+  dead: '死亡主题',
+  fly: '苍蝇道具（别西卜）',
+  mom: '妈妈的道具（妈妈触点 / 是，妈妈）',
+  tech: '科技道具',
+  battery: '电池道具',
+  guppy: '猫道具（古比）',
+  bob: '鲍勃道具',
+  mushroom: '蘑菇道具（真菌迷）',
+  baby: '婴儿道具（连体婴）',
+  angel: '天使道具（炽天使）',
+  devil: '恶魔道具（利维坦）',
+  devilsacrifice: '恶魔祭坛相关',
+  poop: '便便道具（哦，天啊）',
+  book: '书类道具（书虫）',
+  spider: '蜘蛛道具（蜘蛛宝宝）',
+  food: '食物道具（暴食者）',
+  stars: '星象道具（天文台解锁）',
+  syringe: '注射器道具（小背包 / 旋转）',
+  hidden: '隐藏道具',
+};
+const CODEX_POOL_LABELS = {
+  treasure: '宝箱房',
+  greedTreasure: '贪婪模式：宝箱房',
+  contraband: '违禁品',
+  greedShop: '贪婪模式：商店',
+  craneGame: '抓娃娃机',
+  devil: '恶魔房',
+  shop: '商店',
+  ultraSecret: '超级隐藏房',
+  babyShop: '宝宝商店',
+  greedDevil: '贪婪模式：恶魔房',
+  puzzle: '解谜道具池',
+  greedBoss: '贪婪模式：Boss 房',
+  angel: '天使房',
+  secret: '隐藏房',
+  greedAngel: '贪婪模式：天使房',
+  boss: 'Boss 房',
+  greedSecret: '贪婪模式：隐藏房',
+  demonBeggar: '恶魔乞丐',
+  curse: '诅咒房',
+  greedCurse: '贪婪模式：诅咒房',
+  glassChestCommon: '玻璃宝箱（普通）',
+  keyMaster: '钥匙大师',
+  beggar: '乞丐',
+  goldenChest: '金宝箱',
+  oldChest: '旧宝箱',
+  tortureCookie: '折磨饼干',
+  bombBum: '炸弹乞丐',
+  momsChest: '妈妈的箱子',
+  library: '图书馆',
+  redChest: '红色宝箱',
+  zodiacBeggar: '星座乞丐',
+  abandonedPlanetarium: '废弃天文台',
+  woodenChest: '木宝箱',
+  planetarium: '天文台',
+  batteryBum: '电池乞丐',
+  pennyTrinkets: '硬币饰品',
+  rottenBeggar: '腐烂乞丐',
+  roboTeller: '机械提款机',
+  shellGame: '贝壳游戏',
+  glassChestRare: '玻璃宝箱（稀有）',
+  blacksmith: '铁匠',
+  glassChestTrinket: '玻璃宝箱（饰品）',
+  direChest: '恐怖宝箱',
+  roboTellerTrinket: '机械提款机（饰品）',
+};
+
+// 重新填标签/道具池下拉：只列当前分类里真正出现过的值，卡片/胶囊没有数据时整行隐藏
+function codexFillFilters() {
+  const wrap = document.getElementById('codexFilters');
+  const tagSel = document.getElementById('codexTag');
+  const poolSel = document.getElementById('codexPool');
+  if (!wrap || !tagSel || !poolSel) return;
+  const poolable = CODEX.kind === 'collectible' || CODEX.kind === 'trinket';
+  wrap.style.display = poolable ? '' : 'none';
+  if (!poolable) return;
+  const items = CODEX.items.filter(i => i.kind === CODEX.kind);
+  const tags = new Set(), pools = new Set();
+  for (const i of items) {
+    for (const t of (i.tags || [])) for (const w of String(t).split(' ')) if (w) tags.add(w);
+    for (const p of (i.pools || [])) if (p !== ',') pools.add(p);
+  }
+  const opt = (v, label) => '<option value="' + esc(v) + '">' + esc(label) + '</option>';
+  tagSel.innerHTML = '<option value="">全部标签</option>' +
+    [...tags].sort((a, b) => (CODEX_TAG_LABELS[a] || a).localeCompare(CODEX_TAG_LABELS[b] || b))
+      .map(t => opt(t, CODEX_TAG_LABELS[t] || t)).join('');
+  poolSel.innerHTML = '<option value="">全部道具池</option>' +
+    [...pools].sort((a, b) => (CODEX_POOL_LABELS[a] || a).localeCompare(CODEX_POOL_LABELS[b] || b))
+      .map(p => opt(p, CODEX_POOL_LABELS[p] || p)).join('');
+  tagSel.value = tags.has(CODEX.tag) ? CODEX.tag : '';
+  poolSel.value = pools.has(CODEX.pool) ? CODEX.pool : '';
+  CODEX.tag = tagSel.value;
+  CODEX.pool = poolSel.value;
+}
+
+/* ---------- 描述里的 {{Token}} 图标 ---------- */
+const CODEX_TEXT_TOKENS = /^(Color[A-Za-z]+|Blink[A-Za-z]+|CR|ColorReset|NoLB|NoLineBreak|Blank|Indent|IND)$/;
+let codexIconMap = null;
+function codexLoadIcons() {
+  if (codexIconMap) return;
+  codexIconMap = {};
+  fetch('/data/eid-icons.json')
+    .then(r => (r.ok ? r.json() : {}))
+    .then(m => {
+      codexIconMap = m;
+      // 图标表晚于详情页到达时，重画当前详情
+      const wrap = CODEX.detail && document.querySelector('#codexBody .codex-desc');
+      const hit = CODEX.detailKey && CODEX.byId && CODEX.byId.get(CODEX.detailKey);
+      if (wrap && hit) wrap.innerHTML = codexDescHtml(hit.desc);
+    })
+    .catch(() => { codexIconMap = {}; });
+}
+
+// EID 文本 → HTML：{{Token}} 换成内联图标，颜色/换行等纯文本指令直接去掉
+function codexDescHtml(desc) {
+  if (!desc) return '';
+  let html = '', pos = 0;
+  for (const m of desc.matchAll(/\{\{(.*?)\}\}/g)) {
+    html += esc(desc.slice(pos, m.index));
+    pos = m.index + m[0].length;
+    const token = m[1];
+    const icon = codexIconMap && codexIconMap[token];
+    if (icon) {
+      html += '<span class="codex-ri" style="' + iconStyle('eid-inline', icon.c) + '"></span>';
+    } else if (!CODEX_TEXT_TOKENS.test(token)) {
+      html += esc('{{' + token + '}}');
+    }
+  }
+  html += esc(desc.slice(pos));
+  return html;
 }
 
 function codexRender() {
@@ -2610,6 +2778,7 @@ function codexRender() {
   const q = CODEX.query.trim();
   CODEX.detail = false;
   qualityEl.style.display = (CODEX.kind === 'collectible' || CODEX.kind === 'trinket') ? '' : 'none';
+  codexFillFilters();
   const { exact, fuzzy, list } = codexFiltered();
   idxEl.classList.toggle('show', CODEX.sort === 'letter' && !q);
 
@@ -2667,11 +2836,15 @@ function codexOpenDetail(kind, id) {
   CODEX.detail = true;
   CODEX.detailKey = kind + ':' + id;
   // pools 里可能混着字面量 "," 之类的占位 token，过滤掉
-  const poolText = (item.pools || []).filter(p => /[A-Za-z0-9_一-鿿]/.test(p)).join('、');
+  const poolText = (item.pools || []).filter(p => /[A-Za-z0-9_一-鿿]/.test(p))
+    .map(p => CODEX_POOL_LABELS[p] || p).join('、');
   const pools = poolText ? '<p>道具池：' + esc(poolText) + '</p>' : '';
   const q = item.quality != null
     ? '<p>品质：' + esc('★'.repeat(Number(item.quality) || 0)) + '（Q' + esc(item.quality) + '）</p>' : '';
-  const desc = item.desc ? '<p>' + esc(item.desc) + '</p>' : '<p>暂无摘要，可点击下方链接查看 wiki。</p>';
+  const desc = item.desc
+    ? '<div class="codex-desc">' + codexDescHtml(item.desc) + '</div>'
+    : '<p>暂无摘要，可点击下方链接查看 wiki。</p>';
+  codexLoadIcons();
   body.innerHTML = '<div class="codex-detail">' +
     '<button class="codex-close" id="codexBack" aria-label="返回列表">←</button>' +
     '<div ' + codexIconStyle(item, true) + '></div>' +
@@ -2682,6 +2855,7 @@ function codexOpenDetail(kind, id) {
     '<p><a href="https://isaac.huijiwiki.com' + esc(item.wiki) + '" data-wiki="1">在 wiki 查看 →</a></p>' +
     '</div>';
   body.scrollTop = 0;
+  document.getElementById('codexIndex').classList.remove('show');
   document.getElementById('codexSectionTitle').textContent = item.name;
 }
 
@@ -2689,7 +2863,7 @@ function codexViewState() {
   const b = document.getElementById('codexBody');
   // 详情页时列表已被替换，返回的是之前保存的列表位置
   const scrollTop = b ? (CODEX.detail ? (CODEX.listScroll || 0) : b.scrollTop) : 0;
-  return { kind: CODEX.kind, sort: CODEX.sort, quality: CODEX.quality, query: CODEX.query, scrollTop, detailKey: CODEX.detailKey };
+  return { kind: CODEX.kind, sort: CODEX.sort, quality: CODEX.quality, tag: CODEX.tag, pool: CODEX.pool, query: CODEX.query, scrollTop, detailKey: CODEX.detailKey };
 }
 
 function codexRestore(st) {
@@ -2697,6 +2871,8 @@ function codexRestore(st) {
   CODEX.kind = CODEX_TABS.some(t => t.id === st.kind) ? st.kind : 'collectible';
   CODEX.sort = st.sort === 'id' ? 'id' : 'letter';
   CODEX.quality = typeof st.quality === 'string' ? st.quality : '';
+  CODEX.tag = typeof st.tag === 'string' ? st.tag : '';
+  CODEX.pool = typeof st.pool === 'string' ? st.pool : '';
   CODEX.query = typeof st.query === 'string' ? st.query : '';
   const overlay = document.getElementById('codexOverlay');
   overlay.classList.add('open');
@@ -2783,6 +2959,14 @@ function codexInit() {
     if (!b) return;
     CODEX.quality = b.dataset.q;
     document.querySelectorAll('#codexQuality button').forEach(x => x.classList.toggle('active', x === b));
+    codexRender();
+  });
+  document.getElementById('codexTag').addEventListener('change', (e) => {
+    CODEX.tag = e.target.value;
+    codexRender();
+  });
+  document.getElementById('codexPool').addEventListener('change', (e) => {
+    CODEX.pool = e.target.value;
     codexRender();
   });
   document.getElementById('codexClose').addEventListener('click', codexClose);

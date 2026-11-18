@@ -1,5 +1,5 @@
 {
-  "version": "2026-11-16.1",
+  "version": "2026-11-18.1",
   "atlas-ach": {
     "file": "atlas-ach.png",
     "cell": 40,
@@ -47,5 +47,13 @@
     "rows": 5,
     "w": 320,
     "h": 160
+  },
+  "eid-inline": {
+    "file": "eid-inline.webp",
+    "cell": 48,
+    "cols": 20,
+    "rows": 9,
+    "w": 960,
+    "h": 432
   }
 }
