@@ -99,7 +99,7 @@ body {
 .topbar-inner { max-width: 1480px; margin: 0 auto; padding: 14px 20px 12px; }
 
 .top-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
 .brand-main { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
 .brand .collapse-btn { flex: none; }
 .brand-logo {
@@ -157,8 +157,9 @@ body {
 }
 
 /* Controls: search + filter */
-.controls { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.controls { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; align-items: stretch; }
 .search-wrap { position: relative; flex: 1 1 260px; min-width: 200px; }
+.controls-side { display: flex; align-items: center; gap: 10px; flex: none; }
 .search-wrap .s-icon {
   position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
   color: var(--text-3); font-size: 15px; pointer-events: none;
@@ -189,8 +190,14 @@ body {
 }
 #priFilter:focus { border-color: var(--accent); }
 
-/* Tabs */
-.tabs { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 8px; margin-top: 12px; }
+/* Tabs: 单行横滑条；随 .topbar 一起 sticky 在视口顶部 */
+.tabs {
+  display: flex; gap: 8px;
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  padding: 3px 20px 12px;
+}
+.tabs::-webkit-scrollbar { display: none; }
 .tab-btn {
   appearance: none; cursor: pointer; text-align: center;
   background: var(--surface);
@@ -200,6 +207,7 @@ body {
   color: var(--text-2);
   transition: all .18s ease;
   display: flex; flex-direction: column; gap: 6px; align-items: stretch;
+  flex: 1 1 0; min-width: 96px;
 }
 .tab-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
 .tab-btn.active {
@@ -610,12 +618,10 @@ main { max-width: 1480px; margin: 0 auto; padding: 22px 20px 80px; }
 
 /* Responsive */
 @media (max-width: 980px) {
-  .tabs { grid-template-columns: repeat(4, minmax(0,1fr)); }
   .brand h1 { font-size: 17px; }
   .ach-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 }
 @media (max-width: 560px) {
-  .tabs { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .topbar-inner { padding: 10px 12px 10px; }
   main { padding: 14px 12px 60px; }
   .search-results { padding: 14px 12px 60px; }
@@ -632,75 +638,60 @@ main { max-width: 1480px; margin: 0 auto; padding: 22px 20px 80px; }
   .group-header { margin-bottom: 8px; }
   .group-name { font-size: 15px; }
   .group-avatar { width: 24px; height: 24px; font-size: 12px; }
-  /* 标签页按钮 */
-  .tab-btn { padding: 6px 4px 7px; border-radius: 9px; gap: 4px; }
+  /* 标签页按钮（单行横滑） */
+  .tabs { padding: 8px 12px 2px; }
+  .tab-btn { padding: 7px 10px; border-radius: 9px; gap: 0; min-width: 84px; }
   .tab-label { font-size: 12px; }
-  .tab-prog { height: 4px; }
+  .tab-prog { display: none; }
   .tab-count { font-size: 10px; }
   .panel-desc { font-size: 12px; padding: 8px 12px; margin-bottom: 14px; }
   .toolbar .tool-btn #themeLabel { display: inline; }
-  /* 搜索 + 筛选同行，隐藏已完成按钮 */
+  /* 搜索框左侧 + 右侧竖排筛选（搜索框与两按钮总高对齐） */
   .controls { gap: 8px; }
-  .search-wrap { flex: 1 1 100%; min-width: 0; }
-  #priFilter { flex: 1 1 0; padding: 9px 26px 9px 10px; }
-  #hideDoneBtn { flex: 1 1 0; padding: 9px 8px; justify-content: center; font-size: 12px; }
+  .search-wrap { flex: 1 1 0; min-width: 0; }
+  .search-wrap input { height: 58px; padding: 9px 12px 9px 34px; }
+  .controls-side { flex: 0 0 116px; flex-direction: column; gap: 6px; justify-content: center; }
+  .controls-side #hideDoneBtn,
+  .controls-side #priFilter {
+    width: 100%; height: 26px; min-width: 0; flex: none;
+    padding: 0 10px; border-radius: 8px; font-size: 11.5px;
+  }
+  .controls-side #hideDoneBtn { justify-content: center; gap: 4px; }
+  .controls-side #priFilter { padding: 0 22px 0 8px; background-position: right 8px center; }
 }
 
-/* 收起/展开按钮：仅手机端显示 */
-.collapse-btn, .more-btn { display: none !important; }
+/* 齿轮按钮：仅手机端显示 */
+.collapse-btn { display: none !important; }
 @media (max-width: 760px) {
-  .collapse-btn, .more-btn { display: inline-flex !important; }
-}
-.collapse-ico { transition: transform .25s ease; }
-body.topbar-collapsed .collapse-ico { transform: rotate(180deg); }
-
-/* 折叠时隐藏搜索/标签页区域，总进度条常驻（仅手机端生效） */
-@media (max-width: 760px) {
-  body.topbar-collapsed .controls,
-  body.topbar-collapsed .tabs { display: none !important; }
-  body.topbar-collapsed .topbar { box-shadow: none; }
-  body.topbar-collapsed .topbar-inner { padding-bottom: 8px; }
-  body.topbar-collapsed .brand .subtitle { display: none; }
-  body.topbar-collapsed .overall-wrap { margin-top: 8px; }
-}
-/* 桌面端即使有 collapsed 标记也显示全部 */
-@media (min-width: 761px) {
-  body.topbar-collapsed .controls,
-  body.topbar-collapsed .tabs { display: block !important; }
-  body.topbar-collapsed .brand .subtitle { display: block; }
+  .collapse-btn { display: inline-flex !important; }
 }
 
 /* 手机端顶部紧凑布局 */
 @media (max-width: 760px) {
   .top-row { flex-direction: column; align-items: stretch; gap: 10px; }
 
-  /* 标题行：logo + 标题 + 操作按钮同一行 */
+  /* 标题行：logo + 标题 + 齿轮按钮同一行，无副标题 */
   .brand { justify-content: space-between; align-items: center; gap: 8px; }
   .brand-main { gap: 10px; }
   .brand .brand-logo { width: 36px; height: 36px; font-size: 18px; border-radius: 10px; }
   .brand h1 { font-size: 15px; white-space: normal; line-height: 1.25; }
-  .brand .subtitle { font-size: 10.5px; white-space: normal; margin-top: 2px; }
-
-  /* 标题行右侧操作按钮：菜单 ☰ + 收起 ▲，两个并排紧凑圆形 */
-  .brand-actions {
-    display: flex; align-items: center; gap: 6px;
-    flex: none;
-  }
-  .brand-actions .tool-btn {
-    width: 36px; height: 36px; padding: 0;
-    justify-content: center;
-    font-size: 14px;
-    border-radius: 10px;
-  }
+  .brand .subtitle { display: none; }
+  .brand-actions { display: flex; align-items: center; flex: none; }
   .brand .collapse-btn {
     width: 36px; height: 36px; padding: 0;
     flex: none;
     justify-content: center;
-    font-size: 13px;
+    font-size: 15px;
     border-radius: 10px;
   }
+  .brand .collapse-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 
-  /* 工具栏默认隐藏，作为"更多"下拉菜单内容 */
+  /* 工具栏收起时压缩上下间距 */
+  .topbar:has(.toolbar:not(.more-open)) .topbar-inner { padding-bottom: 8px; }
+  .topbar:has(.toolbar:not(.more-open)) .overall-wrap { margin-top: 8px; }
+  .topbar:has(.toolbar:not(.more-open)) .controls { margin-top: 8px; }
+
+  /* 工具栏默认收起，点齿轮展开为 3 列菜单 */
   .toolbar {
     display: none;
     grid-template-columns: repeat(3, 1fr);
@@ -722,13 +713,10 @@ body.topbar-collapsed .collapse-ico { transform: rotate(180deg); }
   }
   .toolbar .tool-btn .t-icon { font-size: 18px; line-height: 1; }
   .toolbar .tool-btn #themeLabel { font-size: 11px; }
-  .more-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 
   .overall-wrap { margin-top: 10px; }
   .overall-head { margin-bottom: 4px; }
   .controls { margin-top: 10px; }
-  .tabs { margin-top: 10px; }
-  #priFilter { flex: 0 0 auto; padding: 9px 30px 9px 12px; }
   .search-wrap input { padding: 9px 12px 9px 34px; }
 }
 
@@ -835,8 +823,7 @@ body.topbar-collapsed .collapse-ico { transform: rotate(180deg); }
           </div>
         </div>
         <div class="brand-actions">
-          <button class="tool-btn more-btn" id="moreBtn" title="更多操作（主题/导出/导入/重置）"><span class="t-icon">☰</span></button>
-          <button class="tool-btn collapse-btn" id="collapseBtn" title="收起 / 展开顶部面板"><span class="t-icon collapse-ico">▲</span></button>
+          <button class="tool-btn collapse-btn" id="collapseBtn" title="设置（主题 / 导入 / 重置）"><span class="t-icon">⚙️</span></button>
         </div>
       </div>
       <div class="toolbar">
@@ -863,13 +850,15 @@ body.topbar-collapsed .collapse-ico { transform: rotate(180deg); }
         <span class="s-icon">🔍</span>
         <input id="search" type="search" placeholder="搜索成就名称、解锁奖励、解锁条件…" autocomplete="off">
       </div>
-      <select id="priFilter" title="按优先级筛选">
-        <option value="">全部优先级</option>
-        <option value="优先">优先解锁</option>
-        <option value="推荐">推荐解锁</option>
-        <option value="none">无优先级</option>
-      </select>
-      <button class="tool-btn" id="hideDoneBtn" title="隐藏 / 显示已完成的成就"><span class="t-icon">👁</span><span id="hideDoneLabel">隐藏已完成</span></button>
+      <div class="controls-side">
+        <button class="tool-btn" id="hideDoneBtn" title="隐藏 / 显示已完成的成就"><span class="t-icon">👁</span><span id="hideDoneLabel">隐藏已完成</span></button>
+        <select id="priFilter" title="按优先级筛选">
+          <option value="">全部优先级</option>
+          <option value="优先">优先解锁</option>
+          <option value="推荐">推荐解锁</option>
+          <option value="none">无优先级</option>
+        </select>
+      </div>
     </div>
 
     <nav class="tabs" id="tabs"></nav>
@@ -1989,6 +1978,9 @@ tabsEl.addEventListener('click', (e) => {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
   ensureActivePanel();
   applyFilter({ jump: false });
+  // 横滑标签条：把选中的标签居中，避免被滑出可视区
+  const left = btn.offsetLeft - (tabsEl.clientWidth - btn.offsetWidth) / 2;
+  tabsEl.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
@@ -2019,38 +2011,39 @@ function initTheme() {
   applyTheme(t);
 }
 
-/* ---------- 顶部面板收起/展开（手机端） ---------- */
-const COLLAPSE_KEY = 'isaac_topbar_collapsed';
+/* ---------- 齿轮：展开/收起工具栏（手机端；桌面端工具栏常驻） ---------- */
+const TOOLBAR_KEY = 'isaac_toolbar_open';
 const collapseBtn = document.getElementById('collapseBtn');
-if (collapseBtn) {
-  // 恢复上次状态
-  if (localStorage.getItem(COLLAPSE_KEY) === '1') {
-    document.body.classList.add('topbar-collapsed');
-  }
+const toolbar = document.querySelector('.toolbar');
+if (collapseBtn && toolbar) {
+  const setToolbar = (open) => {
+    toolbar.classList.toggle('more-open', open);
+    collapseBtn.classList.toggle('active', open);
+    localStorage.setItem(TOOLBAR_KEY, open ? '1' : '0');
+  };
+  if (localStorage.getItem(TOOLBAR_KEY) === '1') setToolbar(true);
   collapseBtn.addEventListener('click', () => {
-    const collapsed = document.body.classList.toggle('topbar-collapsed');
-    localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
-    toast(collapsed ? '顶部面板已收起' : '顶部面板已展开');
+    setToolbar(!toolbar.classList.contains('more-open'));
+  });
+  // 点击其他地方收起
+  document.addEventListener('click', (ev) => {
+    if (!ev.target.closest('.toolbar') && !ev.target.closest('#collapseBtn')) setToolbar(false);
   });
 }
 
-/* ---------- "更多"菜单（手机端） ---------- */
-const moreBtn = document.getElementById('moreBtn');
-const toolbar = document.querySelector('.toolbar');
-if (moreBtn && toolbar) {
-  moreBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    const open = toolbar.classList.toggle('more-open');
-    moreBtn.classList.toggle('active', open);
-  });
-  // 点击其他地方关闭
-  document.addEventListener('click', (ev) => {
-    if (!ev.target.closest('.toolbar') && !ev.target.closest('#moreBtn')) {
-      toolbar.classList.remove('more-open');
-      moreBtn.classList.remove('active');
-    }
-  });
-}
+/* ---------- 标签切换 ---------- */
+tabsEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  currentTab = btn.dataset.tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  ensureActivePanel();
+  applyFilter({ jump: false });
+  // 横滑标签条：把选中的标签居中，避免被滑出可视区
+  const left = btn.offsetLeft - (tabsEl.clientWidth - btn.offsetWidth) / 2;
+  tabsEl.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
 
 document.getElementById('resetBtn').addEventListener('click', () => {
   if (!confirm('确定要清空所有完成进度吗？此操作不可恢复。')) return;
