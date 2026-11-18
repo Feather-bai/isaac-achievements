@@ -9,20 +9,23 @@
     "build:clean": "rimraf build",
     "build:copy": "node scripts/build.mjs",
     "build:check": "tsc --noEmit -p tsconfig.app.json",
+    "gen": "node scripts/extract-sources.mjs && node scripts/snapshot-data.mjs && node scripts/gen-assets.mjs && node scripts/gen-codex.mjs && node scripts/gen-eid-icons.mjs && node scripts/patch-html.mjs",
     "preview-api": "npm run build && wrangler pages dev",
     "deploy": "npm run build && wrangler pages deploy build",
-    "test": "vitest run",
+    "test": "vitest run && node --test scripts/tests/*.test.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "hono": "^4.4.6"
+    "hono": "^4.4.6",
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240529.0",
+    "pinyin-pro": "^3.29.5",
+    "rimraf": "^5.0.5",
     "typescript": "^5.2.2",
     "vite": "^5.3.1",
     "vitest": "2.1.9",
-    "wrangler": "^3.57.2",
-    "rimraf": "^5.0.5"
+    "wrangler": "^3.57.2"
   }
 }
